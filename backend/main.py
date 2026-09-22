@@ -23,25 +23,28 @@ app.add_middleware(
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
 
-@app.get("/")
-def read_root():
-    return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
+IS_VERCEL = os.environ.get("VERCEL") == "1"
 
-@app.get("/favicon.svg")
-def read_favicon():
-    return FileResponse(os.path.join(FRONTEND_DIR, "favicon.svg"))
+if not IS_VERCEL:
+    @app.get("/")
+    def read_root():
+        return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
 
-@app.get("/style.css")
-def read_style():
-    return FileResponse(os.path.join(FRONTEND_DIR, "style.css"))
+    @app.get("/favicon.svg")
+    def read_favicon():
+        return FileResponse(os.path.join(FRONTEND_DIR, "favicon.svg"))
 
-@app.get("/app.js")
-def read_app():
-    return FileResponse(os.path.join(FRONTEND_DIR, "app.js"))
+    @app.get("/style.css")
+    def read_style():
+        return FileResponse(os.path.join(FRONTEND_DIR, "style.css"))
 
-@app.get("/demo_dataset.csv")
-def read_demo():
-    return FileResponse(os.path.join(FRONTEND_DIR, "demo_dataset.csv"))
+    @app.get("/app.js")
+    def read_app():
+        return FileResponse(os.path.join(FRONTEND_DIR, "app.js"))
+
+    @app.get("/demo_dataset.csv")
+    def read_demo():
+        return FileResponse(os.path.join(FRONTEND_DIR, "demo_dataset.csv"))
 
 @app.get("/health")
 def health_check():

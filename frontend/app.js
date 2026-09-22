@@ -295,18 +295,24 @@ function setupUpload() {
             hideLoading();
             let msg = 'Upload failed. The server might be down or starting up.';
             
-            if(err.json) {
+            if(err.text) {
                 try {
-                    const e = await err.json();
-                    msg = e.detail || msg;
-                } catch(parseErr) {
-                    // Not JSON (e.g., Vercel 500 HTML error page)
-                    if(err.text) {
-                        const text = await err.text();
+                    const text = await err.text();
+                    try {
+                        const e = JSON.parse(text);
+                        msg = e.detail || msg;
+                    } catch(parseErr) {
+                        // It's not JSON, it's HTML text
                         if(text.includes("A server error occurred")) {
                             msg = "Vercel Serverless Function crashed on startup. Check Vercel logs.";
+                        } else if(text.includes("504")) {
+                            msg = "Vercel timeout: The analysis took too long for the free tier.";
+                        } else {
+                            msg = `Server Error: ${text.substring(0, 50)}...`;
                         }
                     }
+                } catch(readErr) {
+                    msg = "Network or server error.";
                 }
             }
             
