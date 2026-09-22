@@ -241,25 +241,17 @@ function setupUpload() {
         statusMsg.className = 'status-msg';
         statusMsg.innerText = 'Loading demo dataset...';
         if(window.pulse3D) window.pulse3D();
-        showLoading();
         
-        const startTime = Date.now();
-        
-        fetch(`${API_URL}/demo`, { method: 'POST' })
-            .then(res => res.json())
-            .then(data => {
-                const elapsed = Date.now() - startTime;
-                const delay = Math.max(0, 1500 - elapsed);
-                setTimeout(() => {
-                    hideLoading();
-                    if(data.overview) {
-                        currentDataset = data;
-                        loadDashboard();
-                    } else throw new Error(data.detail || "Error loading demo");
-                }, delay);
+        fetch('/demo_dataset.csv')
+            .then(res => {
+                if(!res.ok) throw new Error("Could not load demo dataset");
+                return res.blob();
+            })
+            .then(blob => {
+                const file = new File([blob], "demo_dataset.csv", {type: "text/csv"});
+                handleFiles(file);
             })
             .catch(err => {
-                hideLoading();
                 statusMsg.className = 'status-msg error';
                 statusMsg.innerText = err.message;
             });

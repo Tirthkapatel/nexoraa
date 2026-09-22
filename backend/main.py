@@ -39,6 +39,10 @@ def read_style():
 def read_app():
     return FileResponse(os.path.join(FRONTEND_DIR, "app.js"))
 
+@app.get("/demo_dataset.csv")
+def read_demo():
+    return FileResponse(os.path.join(FRONTEND_DIR, "demo_dataset.csv"))
+
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
@@ -62,24 +66,7 @@ async def upload_dataset(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/demo")
-async def load_demo_dataset():
-    try:
-        demo_path = os.path.join(BASE_DIR, "data", "demo_dataset.csv")
-        with open(demo_path, "rb") as f:
-            contents = f.read()
-            
-        df = load_data(contents, "demo_dataset.csv")
-        
-        return {
-            "filename": "demo_dataset.csv",
-            "overview": get_dataset_overview(df),
-            "preview": get_dataset_preview(df),
-            "analysis": get_dataset_analysis(df),
-            "viz": get_visualization_data(df)
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+
 
 class InsightsReq(BaseModel):
     summary: Dict[str, Any]
