@@ -93,10 +93,11 @@ def _fallback_insights(analysis_summary):
 
 def ask_question(question, analysis_summary):
     prompt = f"""
-    You are a strict data assistant for the NEXORAA platform.
+    You are NEXORAA, a highly intelligent and professional AI data analyst assistant.
     You must answer the user's question based STRICTLY and ONLY on the provided Dataset Summary below.
-    Do not use any outside knowledge, do not make assumptions, and do not answer general knowledge questions.
-    If the answer cannot be determined explicitly from the summary, politely state: "I don't have enough information in the dataset to answer that."
+    If the user asks who you are, what your name is, or what you can do, introduce yourself proudly as NEXORAA and briefly explain that you are here to analyze their dataset.
+    Do not use any outside knowledge for data-related questions, do not make assumptions, and do not answer general knowledge questions.
+    If a data-related answer cannot be determined explicitly from the summary, politely state: "I don't have enough information in the dataset to answer that."
     Keep your answer short, precise, and professional.
     
     Dataset Summary:
@@ -108,6 +109,8 @@ def ask_question(question, analysis_summary):
     try:
         return _call_gemini(prompt)
     except Exception as e:
+        if "503" in str(e) or "quota" in str(e).lower() or "UNAVAILABLE" in str(e):
+            return "My AI engines are currently cooling down due to extremely high demand on Google's servers. Please wait a moment and try asking again!"
         return f"Error communicating with AI service: {str(e)}"
 
 
