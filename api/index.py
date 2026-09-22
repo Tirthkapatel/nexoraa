@@ -26,39 +26,35 @@ try:
 except ImportError:
     has_genai = False
 
+import time
+
 def _call_gemini(prompt):
     if not has_genai or not API_KEYS:
         raise ValueError("AI integration unavailable (No API keys or library).")
         
     last_err = None
-    # Shuffle keys to distribute load
     keys_to_try = list(API_KEYS)
     random.shuffle(keys_to_try)
     
     for key in keys_to_try:
-        try:
-            client = genai.Client(api_key=key)
-            # Try 1.5 flash which has the highest rate limits
-            response = client.models.generate_content(
-                model='gemini-1.5-flash',
-                contents=prompt,
-            )
-            return response.text
-        except Exception as e:
-            last_err = e
-            if "404" in str(e):
-                # If model not found, try alternative model
-                try:
-                    response = client.models.generate_content(
-                        model='gemini-2.0-flash',
-                        contents=prompt,
-                    )
-                    return response.text
-                except Exception as inner_e:
-                    last_err = inner_e
-            # If 503 or quota error, try next key
-            continue
-            
+        client = genai.Client(api_key=key)
+        # Retry up to 3 times per key for 503 Overload errors
+        for attempt in range(3):
+            try:
+                response = client.models.generate_content(
+                    model='gemini-3.6-flash',
+                    contents=prompt,
+                )
+                return response.text
+            except Exception as e:
+                last_err = e
+                # If it's a 503, wait 1.5 seconds and retry
+                if "503" in str(e) or "UNAVAILABLE" in str(e):
+                    time.sleep(1.5)
+                    continue
+                # If it's any other error (like 404), break to try the next key or fail
+                break
+                
     raise last_err
 
 def get_insights(analysis_summary):
