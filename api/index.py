@@ -38,13 +38,24 @@ def _call_gemini(prompt):
     for key in keys_to_try:
         try:
             client = genai.Client(api_key=key)
+            # Try 1.5 flash which has the highest rate limits
             response = client.models.generate_content(
-                model='gemini-3.6-flash',
+                model='gemini-1.5-flash',
                 contents=prompt,
             )
             return response.text
         except Exception as e:
             last_err = e
+            if "404" in str(e):
+                # If model not found, try alternative model
+                try:
+                    response = client.models.generate_content(
+                        model='gemini-2.0-flash',
+                        contents=prompt,
+                    )
+                    return response.text
+                except Exception as inner_e:
+                    last_err = inner_e
             # If 503 or quota error, try next key
             continue
             
