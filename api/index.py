@@ -1,15 +1,205 @@
+import os
+import json
+import io
+import pandas as pd
+import numpy as np
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Dict, Any
-import uvicorn
-import os
 
-from analysis import load_data, get_dataset_overview, get_dataset_preview, get_dataset_analysis, get_visualization_data
-from ai_service import get_insights, ask_question
+# ==========================================
+# AI SERVICE
+# ==========================================
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
+try:
+    from google import genai
+    from google.genai import types
+    has_genai = True
+except ImportError:
+    has_genai = False
+
+def get_insights(analysis_summary):
+    if has_genai and GEMINI_API_KEY:
+        try:
+            client = genai.Client(api_key=GEMINI_API_KEY)
+            prompt = f"""
+            You are a strict data analyst AI for the NEXORAA platform.
+            Analyze the following dataset summary and provide 3-5 key insights.
+            Be concise, professional, and focus on anomalies, trends, or notable statistics.
+            Do not include any outside information. Use ONLY the provided dataset summary.
+            
+            Dataset Summary:
+            {json.dumps(analysis_summary, indent=2)}
+            """
+            response = client.models.generate_content(
+                model='gemini-3.6-flash',
+                contents=prompt,
+            )
+            return response.text
+        except Exception as e:
+            return _fallback_insights(analysis_summary)
+    else:
+        return _fallback_insights(analysis_summary)
+
+def _fallback_insights(analysis_summary):
+    insights = []
+    analysis = analysis_summary.get("analysis", {})
+    num_cols = analysis.get("numerical", {})
+    cat_cols = analysis.get("categorical", {})
+    insights.append(f"The dataset contains {len(num_cols)} numerical columns and {len(cat_cols)} categorical columns.")
+    if num_cols:
+        highest_var_col = None
+        highest_var = -1
+        for col, stats in num_cols.items():
+            if stats["mean"] and stats["std"]:
+                cv = stats["std"] / (stats["mean"] + 1e-9)
+                if cv > highest_var:
+                    highest_var = cv
+                    highest_var_col = col
+        if highest_var_col:
+            insights.append(f"The numerical column '{highest_var_col}' shows the highest relative variance.")
+    if cat_cols:
+        for col, stats in list(cat_cols.items())[:2]:
+            if stats["top_values"]:
+                top_val = stats["top_values"][0]
+                freq = stats["frequencies"][0]
+                insights.append(f"In the '{col}' category, '{top_val}' is the most frequent value (appearing {freq} times).")
+    return "\n\n".join(insights)
+
+def ask_question(question, analysis_summary):
+    if has_genai and GEMINI_API_KEY:
+        try:
+            client = genai.Client(api_key=GEMINI_API_KEY)
+            prompt = f"""
+            You are a strict data assistant for the NEXORAA platform.
+            You must answer the user's question based STRICTLY and ONLY on the provided Dataset Summary below.
+            Do not use any outside knowledge, do not make assumptions, and do not answer general knowledge questions.
+            If the answer cannot be determined explicitly from the summary, politely state: "I don't have enough information in the dataset to answer that."
+            Keep your answer short, precise, and professional.
+            
+            Dataset Summary:
+            {json.dumps(analysis_summary, indent=2)}
+            
+            Question: {question}
+            """
+            response = client.models.generate_content(
+                model='gemini-3.6-flash',
+                contents=prompt,
+            )
+            return response.text
+        except Exception as e:
+            return f"Error communicating with AI service: {str(e)}"
+    else:
+        return f"AI integration is currently unavailable (no API key). I cannot answer natural language questions, but you can explore the statistics in the Data Quality and Statistical Analysis tabs."
+
+
+# ==========================================
+# ANALYSIS SERVICE
+# ==========================================
+def load_data(file_bytes, filename):
+    if filename.endswith('.csv'):
+        return pd.read_csv(io.BytesIO(file_bytes))
+    elif filename.endswith('.xlsx'):
+        return pd.read_excel(io.BytesIO(file_bytes))
+    else:
+        raise ValueError("Unsupported file format")
+
+def get_dataset_overview(df):
+    num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    cat_cols = df.select_dtypes(exclude=[np.number]).columns.tolist()
+    return {
+        "row_count": len(df),
+        "column_count": len(df.columns),
+        "columns": list(df.columns),
+        "dtypes": {col: str(dtype) for col, dtype in df.dtypes.items()},
+        "missing_values": df.isnull().sum().to_dict(),
+        "duplicate_rows": int(df.duplicated().sum()),
+        "numerical_columns": num_cols,
+        "categorical_columns": cat_cols
+    }
+
+def get_dataset_preview(df, max_rows=50):
+    df_preview = df.head(max_rows).replace({np.nan: None})
+    return df_preview.to_dict(orient="records")
+
+def get_dataset_analysis(df):
+    num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    cat_cols = df.select_dtypes(exclude=[np.number]).columns.tolist()
+    analysis = {"numerical": {}, "categorical": {}}
+    for col in num_cols:
+        col_data = df[col].dropna()
+        if len(col_data) > 0:
+            analysis["numerical"][col] = {
+                "count": int(col_data.count()),
+                "mean": float(col_data.mean()),
+                "median": float(col_data.median()),
+                "min": float(col_data.min()),
+                "max": float(col_data.max()),
+                "std": float(col_data.std()) if len(col_data) > 1 else 0.0
+            }
+        else:
+            analysis["numerical"][col] = {"count": 0, "mean": None, "median": None, "min": None, "max": None, "std": None}
+    for col in cat_cols:
+        col_data = df[col].dropna()
+        if len(col_data) > 0:
+            val_counts = col_data.value_counts().head(10)
+            analysis["categorical"][col] = {
+                "unique_count": int(col_data.nunique()),
+                "top_values": val_counts.index.tolist(),
+                "frequencies": val_counts.tolist()
+            }
+        else:
+            analysis["categorical"][col] = {"unique_count": 0, "top_values": [], "frequencies": []}
+    return analysis
+
+def get_visualization_data(df):
+    viz_data = {}
+    num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    cat_cols = df.select_dtypes(exclude=[np.number]).columns.tolist()
+    if cat_cols:
+        best_cat = min(cat_cols, key=lambda c: df[c].nunique() if df[c].nunique() > 1 else 9999)
+        if df[best_cat].nunique() <= 20:
+            vc = df[best_cat].value_counts()
+            viz_data["bar"] = {
+                "x": vc.index.tolist(),
+                "y": vc.tolist(),
+                "title": f"Distribution of {best_cat}",
+                "type": "bar",
+                "col": best_cat
+            }
+    if num_cols:
+        best_num = num_cols[0]
+        hist_data = df[best_num].dropna().tolist()
+        if len(hist_data) > 1000:
+            hist_data = pd.Series(hist_data).sample(1000).tolist()
+        viz_data["histogram"] = {
+            "x": hist_data,
+            "title": f"Distribution of {best_num}",
+            "type": "histogram",
+            "col": best_num
+        }
+    if len(num_cols) >= 2:
+        df_scatter = df.dropna(subset=[num_cols[0], num_cols[1]])
+        if len(df_scatter) > 1000:
+            df_scatter = df_scatter.sample(1000)
+        viz_data["scatter"] = {
+            "x": df_scatter[num_cols[0]].tolist(),
+            "y": df_scatter[num_cols[1]].tolist(),
+            "title": f"{num_cols[1]} vs {num_cols[0]}",
+            "type": "scatter",
+            "x_col": num_cols[0],
+            "y_col": num_cols[1]
+        }
+    viz_data["meta"] = {"numerical": num_cols, "categorical": cat_cols}
+    return viz_data
+
+
+# ==========================================
+# FASTAPI APP
+# ==========================================
 app = FastAPI(title="NEXORAA API")
 
 app.add_middleware(
@@ -46,7 +236,7 @@ if not IS_VERCEL:
     def read_demo():
         return FileResponse(os.path.join(FRONTEND_DIR, "demo_dataset.csv"))
 
-@app.get("/health")
+@app.get("/api/health")
 def health_check():
     return {"status": "ok"}
 
@@ -68,8 +258,6 @@ async def upload_dataset(file: UploadFile = File(...)):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
 
 class InsightsReq(BaseModel):
     summary: Dict[str, Any]
@@ -95,4 +283,5 @@ def ask(req: QuestionReq):
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    import uvicorn
+    uvicorn.run("index:app", host="0.0.0.0", port=8000, reload=True)
