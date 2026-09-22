@@ -12,36 +12,58 @@ from typing import Dict, Any
 # ==========================================
 # AI SERVICE
 # ==========================================
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+import random
+
+# Load all available keys from environment variables
+API_KEYS = []
+for k, v in os.environ.items():
+    if k.startswith("GEMINI_API_KEY") and v.strip():
+        API_KEYS.append(v.strip())
 
 try:
     from google import genai
-    from google.genai import types
     has_genai = True
 except ImportError:
     has_genai = False
 
-def get_insights(analysis_summary):
-    if has_genai and GEMINI_API_KEY:
+def _call_gemini(prompt):
+    if not has_genai or not API_KEYS:
+        raise ValueError("AI integration unavailable (No API keys or library).")
+        
+    last_err = None
+    # Shuffle keys to distribute load
+    keys_to_try = list(API_KEYS)
+    random.shuffle(keys_to_try)
+    
+    for key in keys_to_try:
         try:
-            client = genai.Client(api_key=GEMINI_API_KEY)
-            prompt = f"""
-            You are a strict data analyst AI for the NEXORAA platform.
-            Analyze the following dataset summary and provide 3-5 key insights.
-            Be concise, professional, and focus on anomalies, trends, or notable statistics.
-            Do not include any outside information. Use ONLY the provided dataset summary.
-            
-            Dataset Summary:
-            {json.dumps(analysis_summary, indent=2)}
-            """
+            client = genai.Client(api_key=key)
             response = client.models.generate_content(
                 model='gemini-3.6-flash',
                 contents=prompt,
             )
             return response.text
         except Exception as e:
-            return _fallback_insights(analysis_summary)
-    else:
+            last_err = e
+            # If 503 or quota error, try next key
+            continue
+            
+    raise last_err
+
+def get_insights(analysis_summary):
+    prompt = f"""
+    You are a strict data analyst AI for the NEXORAA platform.
+    Analyze the following dataset summary and provide 3-5 key insights.
+    Be concise, professional, and focus on anomalies, trends, or notable statistics.
+    Do not include any outside information. Use ONLY the provided dataset summary.
+    
+    Dataset Summary:
+    {json.dumps(analysis_summary, indent=2)}
+    """
+    
+    try:
+        return _call_gemini(prompt)
+    except Exception:
         return _fallback_insights(analysis_summary)
 
 def _fallback_insights(analysis_summary):
@@ -70,30 +92,23 @@ def _fallback_insights(analysis_summary):
     return "\n\n".join(insights)
 
 def ask_question(question, analysis_summary):
-    if has_genai and GEMINI_API_KEY:
-        try:
-            client = genai.Client(api_key=GEMINI_API_KEY)
-            prompt = f"""
-            You are a strict data assistant for the NEXORAA platform.
-            You must answer the user's question based STRICTLY and ONLY on the provided Dataset Summary below.
-            Do not use any outside knowledge, do not make assumptions, and do not answer general knowledge questions.
-            If the answer cannot be determined explicitly from the summary, politely state: "I don't have enough information in the dataset to answer that."
-            Keep your answer short, precise, and professional.
-            
-            Dataset Summary:
-            {json.dumps(analysis_summary, indent=2)}
-            
-            Question: {question}
-            """
-            response = client.models.generate_content(
-                model='gemini-3.6-flash',
-                contents=prompt,
-            )
-            return response.text
-        except Exception as e:
-            return f"Error communicating with AI service: {str(e)}"
-    else:
-        return f"AI integration is currently unavailable (no API key). I cannot answer natural language questions, but you can explore the statistics in the Data Quality and Statistical Analysis tabs."
+    prompt = f"""
+    You are a strict data assistant for the NEXORAA platform.
+    You must answer the user's question based STRICTLY and ONLY on the provided Dataset Summary below.
+    Do not use any outside knowledge, do not make assumptions, and do not answer general knowledge questions.
+    If the answer cannot be determined explicitly from the summary, politely state: "I don't have enough information in the dataset to answer that."
+    Keep your answer short, precise, and professional.
+    
+    Dataset Summary:
+    {json.dumps(analysis_summary, indent=2)}
+    
+    Question: {question}
+    """
+    
+    try:
+        return _call_gemini(prompt)
+    except Exception as e:
+        return f"Error communicating with AI service: {str(e)}"
 
 
 # ==========================================
