@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXORAA | AI Data Analyst</title>
+    
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+    
+    <!-- Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <link rel="stylesheet" href="/style.css?v=3">
+</head>
+<body>
+
+    <nav class="top-nav">
+        <div class="logo">NEXORAA</div>
+        <div class="nav-links" id="main-nav" style="display: none;">
+            <a href="#" class="active" data-target="overview-section">Overview</a>
+            <a href="#" data-target="stats-section">Statistics</a>
+            <a href="#" data-target="viz-section">Visualizations</a>
+            <a href="#" data-target="ai-section">AI Insights</a>
+            <a href="#" data-target="ask-section">Ask NEXORAA</a>
+            <a href="#" data-target="report-section">Report</a>
+            <button id="clear-btn" class="btn-outline btn-small">Clear Data</button>
+        </div>
+    </nav>
+
+    <!-- Hero / Upload Section -->
+    <section id="hero-section" class="active-section">
+        <div class="hero-content">
+            <h1 class="hero-title">Turn Raw Data Into Clear Decisions</h1>
+            <p class="hero-subtitle">Upload your dataset to instantly generate advanced statistical analyses, dynamic visualizations, and AI-driven insights.</p>
+            
+            <div class="upload-container" id="drop-zone">
+                <div id="upload-default-state">
+                    <input type="file" id="file-upload" accept=".csv, .xlsx" hidden>
+                    <div class="upload-icon">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    </div>
+                    <h3>Drag & Drop Dataset</h3>
+                    <p>or click to browse CSV / XLSX</p>
+                    <button class="btn-primary" onclick="document.getElementById('file-upload').click()">Browse Files</button>
+                </div>
+                <div id="upload-loading-state" style="display: none;">
+                    <div class="spinner"></div>
+                    <h3>Processing Dataset...</h3>
+                    <p>Analyzing statistics and generating insights</p>
+                </div>
+            </div>
+            
+            <div class="demo-container">
+                <p>Don't have a dataset ready?</p>
+                <button id="demo-btn" class="btn-secondary">Try Demo Dataset</button>
+            </div>
+            
+            <div id="upload-status" class="status-msg"></div>
+        </div>
+        
+        <div class="hero-3d" id="three-container"></div>
+    </section>
+
+    <!-- Dashboard Layout -->
+    <div id="dashboard" style="display: none;">
+        
+        <header class="dataset-header">
+            <h2 id="dh-filename">Dataset</h2>
+            <div class="metrics-bar">
+                <div class="metric"><span id="dh-rows" class="metric-val">-</span> Rows</div>
+                <div class="metric"><span id="dh-cols" class="metric-val">-</span> Columns</div>
+                <div class="metric"><span id="dh-missing" class="metric-val">-</span> Missing</div>
+                <div class="metric"><span id="dh-dupes" class="metric-val">-</span> Duplicates</div>
+            </div>
+        </header>
+
+        <main class="dashboard-content">
+            
+            <!-- Overview Section -->
+            <section id="overview-section" class="dash-section active-section">
+                <div class="card">
+                    <h3>Dataset Preview</h3>
+                    <div class="table-container">
+                        <table id="preview-table">
+                            <thead></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="grid-2 mt-4">
+                    <div class="card">
+                        <h3>Column Types</h3>
+                        <ul id="col-types-list" class="styled-list"></ul>
+                    </div>
+                    <div class="card">
+                        <h3>Data Quality</h3>
+                        <ul id="data-quality-list" class="styled-list"></ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Statistics Section -->
+            <section id="stats-section" class="dash-section">
+                <div class="card">
+                    <h3>Numerical Summary</h3>
+                    <div class="table-container">
+                        <table id="num-stats-table" class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Column</th>
+                                    <th>Count</th>
+                                    <th>Mean</th>
+                                    <th>Median</th>
+                                    <th>Min</th>
+                                    <th>Max</th>
+                                    <th>Std Dev</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="card mt-4">
+                    <h3>Categorical Summary</h3>
+                    <div class="table-container">
+                        <table id="cat-stats-table" class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Column</th>
+                                    <th>Unique Values</th>
+                                    <th>Top Value (Freq)</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Visualizations Section -->
+            <section id="viz-section" class="dash-section">
+                <div class="grid-2">
+                    <div class="card chart-card">
+                        <div id="chart-bar" class="plotly-chart"></div>
+                    </div>
+                    <div class="card chart-card">
+                        <div id="chart-hist" class="plotly-chart"></div>
+                    </div>
+                    <div class="card chart-card full-width">
+                        <div id="chart-scatter" class="plotly-chart"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- AI Insights Section -->
+            <section id="ai-section" class="dash-section">
+                <div class="card ai-card">
+                    <h3>AI Data Insights</h3>
+                    <div id="ai-insights-content" class="ai-content">
+                        <div class="loading-spinner">Generating insights...</div>
+                    </div>
+                    <button id="regen-insights-btn" class="btn-outline mt-4">Regenerate Insights</button>
+                </div>
+            </section>
+
+            <!-- Ask NEXORAA Section -->
+            <section id="ask-section" class="dash-section">
+                <div class="card chat-card">
+                    <h3>Ask NEXORAA</h3>
+                    <p class="subtitle">Ask questions about your dataset in plain English.</p>
+                    
+                    <div id="chat-history" class="chat-history">
+                        <div class="chat-msg system">Hello! I've analyzed your dataset. What would you like to know?</div>
+                    </div>
+                    
+                    <div class="chat-input-area">
+                        <input type="text" id="chat-input" placeholder="e.g. Which region had the highest revenue?">
+                        <button id="chat-send-btn" class="btn-primary">Ask</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Report Section -->
+            <section id="report-section" class="dash-section">
+                <div class="card" id="printable-report">
+                    <div class="report-header">
+                        <h2>NEXORAA Data Report</h2>
+                        <h4 id="report-filename"></h4>
+                    </div>
+                    
+                    <div class="report-section">
+                        <h3>1. Executive Summary</h3>
+                        <p id="report-summary-text"></p>
+                    </div>
+                    
+                    <div class="report-section">
+                        <h3>2. Data Quality Overview</h3>
+                        <ul id="report-quality-list"></ul>
+                    </div>
+                    
+                    <div class="report-section">
+                        <h3>3. Key AI Insights</h3>
+                        <div id="report-insights"></div>
+                    </div>
+                </div>
+                
+                <div class="actions mt-4">
+                    <button onclick="window.print()" class="btn-primary">Print / Save as PDF</button>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script src="/app.js?v=6"></script>
+</body>
+</html>

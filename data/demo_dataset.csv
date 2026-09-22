@@ -1,0 +1,23 @@
+Date,Region,Product_Category,Sales_Channel,Revenue,Units_Sold,Customer_Satisfaction_Score,Marketing_Spend,Return_Rate
+2023-01-01,North America,Electronics,Online,15000.50,120,4.2,2000.00,0.05
+2023-01-02,Europe,Clothing,Retail,8500.00,250,3.8,1200.00,0.12
+2023-01-03,Asia,Home Appliances,Online,22000.75,80,4.7,3500.50,0.02
+2023-01-04,North America,Clothing,Online,12000.00,300,4.1,1500.00,0.08
+2023-01-05,Europe,Electronics,Retail,18500.25,150,4.5,2800.00,0.04
+2023-01-06,Asia,Electronics,Online,25000.00,200,4.8,4000.00,0.03
+2023-01-07,North America,Home Appliances,Retail,9500.50,40,3.5,800.00,0.15
+2023-01-08,Europe,Home Appliances,Online,14200.00,60,4.0,1800.00,0.06
+2023-01-09,Asia,Clothing,Retail,7800.00,220,3.9,1000.00,0.10
+2023-01-10,North America,Electronics,Online,16500.00,130,4.3,2200.00,0.05
+2023-01-11,Europe,Clothing,Online,11500.50,280,4.2,1600.00,0.09
+2023-01-12,Asia,Home Appliances,Retail,19800.00,75,4.6,3100.00,0.03
+2023-01-13,North America,Clothing,Retail,10200.00,260,3.7,1300.00,0.11
+2023-01-14,Europe,Electronics,Online,21000.50,170,4.7,3200.00,0.04
+2023-01-15,Asia,Clothing,Online,13400.00,320,4.4,1900.00,0.07
+2023-01-16,North America,Home Appliances,Online,23500.75,90,4.9,3800.50,0.02
+2023-01-17,Europe,Home Appliances,Retail,8900.00,35,3.4,750.00,0.16
+2023-01-18,Asia,Electronics,Retail,17200.25,140,4.1,2500.00,0.06
+2023-01-19,North America,Electronics,Retail,14800.00,115,4.0,1950.00,0.07
+2023-01-20,Europe,Clothing,Online,12800.50,310,4.3,1750.00,0.08
+,Europe,Clothing,Online,12800.50,310,,1750.00,
+2023-01-20,Europe,Clothing,Online,12800.50,310,4.3,1750.00,0.08
