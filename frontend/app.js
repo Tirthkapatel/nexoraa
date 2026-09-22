@@ -293,11 +293,23 @@ function setupUpload() {
         })
         .catch(async err => {
             hideLoading();
-            let msg = 'Upload failed.';
+            let msg = 'Upload failed. The server might be down or starting up.';
+            
             if(err.json) {
-                const e = await err.json();
-                msg = e.detail || msg;
+                try {
+                    const e = await err.json();
+                    msg = e.detail || msg;
+                } catch(parseErr) {
+                    // Not JSON (e.g., Vercel 500 HTML error page)
+                    if(err.text) {
+                        const text = await err.text();
+                        if(text.includes("A server error occurred")) {
+                            msg = "Vercel Serverless Function crashed on startup. Check Vercel logs.";
+                        }
+                    }
+                }
             }
+            
             statusMsg.className = 'status-msg error';
             statusMsg.innerText = msg;
         });
